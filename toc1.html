@@ -1,0 +1,951 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Vehicle Plate NFA Visualizer (HTML/CSS/JS)</title>
+<style>
+  :root {
+    --bg: #0f1724;
+    --card: #0b1220;
+    --muted: #9aa3b2;
+    --accent: #06b6d4;
+    --good: #10b981;
+    --bad: #ef4444;
+    --trap: #ef4444;
+    --border: rgba(255,255,255,0.08);
+    --card-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+  
+  body {
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    margin: 0;
+    background: linear-gradient(180deg, #071027, #071827);
+    color: #e6eef6;
+    padding: 20px;
+    line-height: 1.5;
+  }
+  
+  .app {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  
+  .header {
+    margin-bottom: 24px;
+  }
+  
+  h1 {
+    margin: 0 0 8px;
+    font-size: 24px;
+    font-weight: 600;
+    background: linear-gradient(90deg, #06b6d4, #3b82f6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  
+  .lead {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  
+  .kbd {
+    background: rgba(2, 21, 27, 0.7);
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.03);
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+    font-size: 13px;
+    color: #e6eef6;
+  }
+  
+  .card {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: var(--card-shadow);
+    border: 1px solid var(--border);
+  }
+  
+  .controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  
+  .main-controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    flex: 1;
+  }
+  
+  .view-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  
+  input[type="text"] {
+    flex: 1;
+    min-width: 200px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: rgba(6, 16, 33, 0.7);
+    color: inherit;
+    font-size: 14px;
+    transition: all 0.2s ease;
+  }
+  
+  input[type="text"]:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.2);
+  }
+  
+  button {
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: 0;
+    background: rgba(255,255,255,0.05);
+    color: inherit;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  
+  button:hover {
+    background: rgba(255,255,255,0.1);
+    transform: translateY(-1px);
+  }
+  
+  button.primary {
+    background: linear-gradient(90deg, #06b6d4, #3b82f6);
+    color: white;
+  }
+  
+  button.primary:hover {
+    box-shadow: 0 4px 12px rgba(6, 182, 212, 0.3);
+  }
+  
+  button.warn {
+    background: var(--bad);
+    color: white;
+  }
+  
+  button.zoom {
+    background: rgba(255,255,255,0.08);
+    padding: 8px 12px;
+  }
+  
+  select {
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: rgba(6, 16, 33, 0.7);
+    color: inherit;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  
+  .panel {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  
+  .canvas-container {
+    flex: 1;
+    min-width: 300px;
+  }
+  
+  .canvas {
+    background: linear-gradient(180deg, #071833, #052035);
+    border-radius: 12px;
+    padding: 20px;
+    overflow: hidden;
+    box-shadow: var(--card-shadow);
+    border: 1px solid var(--border);
+    position: relative;
+  }
+  
+  .svg-container {
+    width: 100%;
+    height: 240px;
+    overflow: hidden;
+    border-radius: 8px;
+    position: relative;
+  }
+  
+  svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  
+  .state {
+    fill: #071827;
+    stroke: #8ba5b8;
+    stroke-width: 2;
+    transition: all 0.3s ease;
+  }
+  
+  .state.accept {
+    stroke-dasharray: 6 3;
+  }
+  
+  .state.active {
+    fill: var(--accent);
+    stroke: #e6eef6;
+    filter: drop-shadow(0 0 6px rgba(6, 182, 212, 0.6));
+  }
+  
+  .state.trap {
+    fill: var(--trap);
+    stroke: #fca5a5;
+    opacity: 0.8;
+  }
+  
+  .state.trap.active {
+    fill: var(--trap);
+    stroke: #fecaca;
+    filter: drop-shadow(0 0 6px rgba(239, 68, 68, 0.6));
+  }
+  
+  .state.rejected {
+    fill: #111827;
+    opacity: .35;
+  }
+  
+  .st-label {
+    font-size: 12px;
+    fill: #e6eef6;
+    pointer-events: none;
+    text-anchor: middle;
+    font-weight: 500;
+  }
+  
+  .edge {
+    stroke: #2b4150;
+    stroke-width: 2;
+    fill: none;
+  }
+  
+  .trap-edge {
+    stroke: var(--trap);
+    stroke-width: 2;
+    stroke-dasharray: 5,5;
+    fill: none;
+  }
+  
+  .sidebar {
+    width: 360px;
+    min-width: 260px;
+  }
+  
+  .history-container {
+    margin-bottom: 20px;
+  }
+  
+  .history-title {
+    margin: 0 0 12px;
+    font-size: 16px;
+    font-weight: 600;
+  }
+  
+  .history {
+    background: rgba(3, 18, 33, 0.7);
+    border-radius: 8px;
+    padding: 16px;
+    color: var(--muted);
+    font-size: 13px;
+    height: 300px;
+    overflow: auto;
+    border: 1px solid var(--border);
+  }
+  
+  .status {
+    margin-top: 16px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    background: rgba(2, 19, 32, 0.7);
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    border: 1px solid var(--border);
+  }
+  
+  .accepted {
+    color: var(--good);
+    font-weight: 600;
+  }
+  
+  .rejected {
+    color: var(--bad);
+    font-weight: 600;
+  }
+  
+  .small {
+    font-size: 13px;
+    color: var(--muted);
+  }
+  
+  .legend {
+    margin-top: 20px;
+  }
+  
+  .legend-title {
+    margin: 0 0 12px;
+    font-size: 16px;
+    font-weight: 600;
+  }
+  
+  .legend-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  
+  .legend-icon {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    margin-right: 10px;
+    flex-shrink: 0;
+  }
+  
+  .legend-icon.active {
+    background: var(--accent);
+  }
+  
+  .legend-icon.accept {
+    background: transparent;
+    border: 2px dashed #8ba5b8;
+  }
+  
+  .legend-icon.trap {
+    background: var(--trap);
+  }
+  
+  .notes {
+    margin-top: 16px;
+    padding: 12px;
+    background: rgba(2, 19, 32, 0.5);
+    border-radius: 8px;
+    border-left: 3px solid var(--accent);
+  }
+  
+  .zoom-controls {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    gap: 8px;
+    z-index: 10;
+  }
+  
+  .zoom-info {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  
+  @media (max-width: 768px) {
+    .panel {
+      flex-direction: column;
+    }
+    
+    .sidebar {
+      width: 100%;
+    }
+    
+    .controls {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    
+    .main-controls {
+      flex-direction: column;
+    }
+    
+    input[type="text"] {
+      min-width: auto;
+    }
+    
+    .status {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    
+    .view-controls {
+      width: 100%;
+      justify-content: center;
+    }
+    
+    .svg-container {
+      height: 200px;
+    }
+  }
+</style>
+</head>
+<body>
+  <div class="app">
+    <div class="header">
+      <h1>Vehicle Plate NFA Visualizer</h1>
+      <p class="lead">Simplified pattern: <span class="kbd">[A-Z]{2} [0-9]{1,2} [A-Z]{1,2} [0-9]{1,4}</span> (spaces optional). Type input and use Step / Play to animate.</p>
+    </div>
+
+    <div class="card">
+      <div class="controls">
+        <div class="main-controls">
+          <input id="inp" type="text" value="MH12AB1234" placeholder="Type plate e.g. MH12AB1234 or DL 9 C 45" />
+          <button id="btnPlay" class="primary">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M3 2v12l10-6z"/>
+            </svg>
+            Play
+          </button>
+          <button id="btnStep">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M5 2v12l2-2-2-2 8-4z"/>
+            </svg>
+            Step
+          </button>
+          <button id="btnBack">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M11 2v12l-2-2 2-2-8-4z"/>
+            </svg>
+            Back
+          </button>
+          <button id="btnReset">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M8 2a6 6 0 1 0 6 6 6 6 0 0 0-6-6zm0 10a4 4 0 1 1 4-4 4 4 0 0 1-4 4z"/>
+              <path d="M10 6L6 8l4 2z"/>
+            </svg>
+            Reset
+          </button>
+          <select id="speed" title="Playback speed">
+            <option value="600">600ms</option>
+            <option value="400">400ms</option>
+            <option value="200">200ms</option>
+          </select>
+        </div>
+        
+        <div class="view-controls">
+          <button id="btnZoomOut" class="zoom" title="Zoom Out">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M2 7h12v2H2z"/>
+            </svg>
+          </button>
+          <button id="btnZoomFit" class="zoom" title="Fit to View">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M2 2v4h2V4h4V2H2zm8 0v2h4v4h2V2h-6zm4 8h2v4h-6v-2h4v-2zm-8 2v2H2v-4h2v2h4z"/>
+            </svg>
+          </button>
+          <button id="btnZoomIn" class="zoom" title="Zoom In">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M7 2v5H2v2h5v5h2V9h5V7H9V2H7z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="canvas-container">
+          <div class="canvas">
+            <div class="zoom-controls">
+              <button id="btnResetView" class="zoom" title="Reset View">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M8 2a6 6 0 1 0 6 6 6 6 0 0 0-6-6zm0 10a4 4 0 1 1 4-4 4 4 0 0 1-4 4z"/>
+                </svg>
+              </button>
+            </div>
+            <div class="zoom-info" id="zoomInfo">100%</div>
+            
+            <div class="svg-container" id="svgContainer">
+              <svg id="diagram" viewBox="0 0 1200 280" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+                <!-- SVG content will be generated by JavaScript -->
+              </svg>
+            </div>
+
+            <div class="status" id="statusBar">
+              <div>Index: <span id="idx">0</span> / <span id="len">0</span> — Current char: <span id="curr">—</span></div>
+              <div>Result: <span id="result" class="small">—</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sidebar">
+          <div class="history-container">
+            <h3 class="history-title">History (transitions)</h3>
+            <div id="history" class="history"></div>
+          </div>
+
+          <div class="legend">
+            <h3 class="legend-title">Legend</h3>
+            <div class="legend-item">
+              <div class="legend-icon active"></div>
+              <div>Active state</div>
+            </div>
+            <div class="legend-item">
+              <div class="legend-icon accept"></div>
+              <div>Accepting state</div>
+            </div>
+            <div class="legend-item">
+              <div class="legend-icon trap"></div>
+              <div>Trap state</div>
+            </div>
+          </div>
+          
+          <div class="notes">
+            <div class="small">Notes: Spaces are treated as optional separators and consumed without changing active states. Invalid characters lead to trap state q11.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/*
+  NFA design (simplified):
+  States: q0..q10 (normal states), q11 (trap state)
+  Accepting: q7, q8, q9, q10  (after 1..4 final digits)
+  Trap: q11 (for invalid transitions and extra characters)
+  Transitions defined by character classes (letter/digit).
+  Spaces are optional and consumed without changing active states.
+*/
+
+(function(){
+  // --- configuration ---
+  const STATES = [
+    'q0','q1','q2','q3','q4','q5','q6','q7','q8','q9','q10','q11'
+  ];
+  const ACCEPT = new Set(['q7','q8','q9','q10']);
+  const TRAP_STATE = 'q11';
+
+  // transition rules: state -> array of {type: 'L'|'D', to: state}
+  // L = letter [A-Z], D = digit [0-9]
+  const TRANS = {
+    q0: [{t:'L',to:'q1'}],
+    q1: [{t:'L',to:'q2'}],
+    q2: [{t:'D',to:'q3'}],
+    q3: [{t:'D',to:'q4'}, {t:'L',to:'q5'}],
+    q4: [{t:'L',to:'q5'}],
+    q5: [{t:'L',to:'q6'}, {t:'D',to:'q7'}],
+    q6: [{t:'D',to:'q7'}],
+    q7: [{t:'D',to:'q8'}],
+    q8: [{t:'D',to:'q9'}],
+    q9: [{t:'D',to:'q10'}],
+    q10: [],
+    q11: [] // Trap state - no way out
+  };
+
+  // --- utils ---
+  const isLetter = c => /^[A-Z]$/.test(c);
+  const isDigit = c => /^[0-9]$/.test(c);
+  const isSpace = c => c === ' ';
+
+  // DOM
+  const svg = document.getElementById('diagram');
+  const svgContainer = document.getElementById('svgContainer');
+  const inp = document.getElementById('inp');
+  const btnPlay = document.getElementById('btnPlay');
+  const btnStep = document.getElementById('btnStep');
+  const btnBack = document.getElementById('btnBack');
+  const btnReset = document.getElementById('btnReset');
+  const btnZoomIn = document.getElementById('btnZoomIn');
+  const btnZoomOut = document.getElementById('btnZoomOut');
+  const btnZoomFit = document.getElementById('btnZoomFit');
+  const btnResetView = document.getElementById('btnResetView');
+  const speedSel = document.getElementById('speed');
+  const historyEl = document.getElementById('history');
+  const idxEl = document.getElementById('idx');
+  const lenEl = document.getElementById('len');
+  const currEl = document.getElementById('curr');
+  const resultEl = document.getElementById('result');
+  const zoomInfo = document.getElementById('zoomInfo');
+
+  // Zoom state
+  let currentScale = 1;
+  const MIN_SCALE = 0.5;
+  const MAX_SCALE = 2;
+  const SCALE_STEP = 0.1;
+
+  // Calculate responsive layout
+  function calculateLayout() {
+    const containerWidth = svgContainer.clientWidth;
+    const totalStates = STATES.length - 1; // -1 because trap state is placed separately
+    const stateSpacing = Math.max(80, containerWidth / (totalStates + 1));
+    
+    const coords = {};
+    const startX = stateSpacing;
+    const y = 110;
+    
+    // Position main states horizontally
+    STATES.slice(0, -1).forEach((s, i) => {
+      coords[s] = { x: startX + i * stateSpacing, y };
+    });
+    
+    // Position trap state below and centered
+    coords[TRAP_STATE] = { 
+      x: startX + (totalStates / 2) * stateSpacing, 
+      y: y + 120 
+    };
+    
+    return { coords, stateSpacing };
+  }
+
+  let layout = calculateLayout();
+
+  // Zoom functions
+  function updateZoom() {
+    svgContainer.style.transform = `scale(${currentScale})`;
+    svgContainer.style.transformOrigin = 'center top';
+    zoomInfo.textContent = `${Math.round(currentScale * 100)}%`;
+  }
+
+  function zoomIn() {
+    currentScale = Math.min(MAX_SCALE, currentScale + SCALE_STEP);
+    updateZoom();
+  }
+
+  function zoomOut() {
+    currentScale = Math.max(MIN_SCALE, currentScale - SCALE_STEP);
+    updateZoom();
+  }
+
+  function zoomFit() {
+    currentScale = 1;
+    updateZoom();
+  }
+
+  function resetView() {
+    currentScale = 1;
+    updateZoom();
+  }
+
+  // draw edges & nodes
+  function drawDiagram(){
+    // Recalculate layout on each draw to ensure responsiveness
+    layout = calculateLayout();
+    const { coords, stateSpacing } = layout;
+    
+    svg.innerHTML = '';
+    
+    // Update viewBox to match calculated layout
+    const totalWidth = stateSpacing * (STATES.length);
+    svg.setAttribute('viewBox', `0 0 ${totalWidth} 280`);
+    
+    // edges between main states
+    STATES.slice(0, -1).forEach((s, i) => {
+      if (i < STATES.length - 2) {
+        const from = coords[s];
+        const to = coords[STATES[i + 1]];
+        
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', from.x + 24);
+        line.setAttribute('y1', from.y);
+        line.setAttribute('x2', to.x - 24);
+        line.setAttribute('y2', to.y);
+        line.setAttribute('class', 'edge');
+        svg.appendChild(line);
+      }
+    });
+    
+    // edges from all states to trap state (for invalid transitions)
+    STATES.forEach(s => {
+      if (s !== TRAP_STATE) {
+        const from = coords[s];
+        const to = coords[TRAP_STATE];
+        
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', from.x);
+        line.setAttribute('y1', from.y + 24);
+        line.setAttribute('x2', to.x);
+        line.setAttribute('y2', to.y - 24);
+        line.setAttribute('class', 'trap-edge');
+        line.setAttribute('stroke-dasharray', '5,5');
+        svg.appendChild(line);
+        
+        // Add arrowhead
+        const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+        marker.setAttribute('id', 'trap-arrow');
+        marker.setAttribute('viewBox', '0 0 10 10');
+        marker.setAttribute('refX', '9');
+        marker.setAttribute('refY', '5');
+        marker.setAttribute('markerWidth', '6');
+        marker.setAttribute('markerHeight', '6');
+        marker.setAttribute('orient', 'auto');
+        
+        const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        arrow.setAttribute('d', 'M 0 0 L 10 5 L 0 10 z');
+        arrow.setAttribute('fill', 'var(--trap)');
+        marker.appendChild(arrow);
+        svg.appendChild(marker);
+        
+        line.setAttribute('marker-end', 'url(#trap-arrow)');
+      }
+    });
+    
+    // nodes
+    STATES.forEach(s => {
+      const { x, y } = coords[s];
+      
+      const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      g.setAttribute('id', 'node-' + s);
+      
+      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      circle.setAttribute('cx', x);
+      circle.setAttribute('cy', y);
+      circle.setAttribute('r', 20);
+      
+      if (s === TRAP_STATE) {
+        circle.setAttribute('class', 'state trap');
+      } else if (ACCEPT.has(s)) {
+        circle.setAttribute('class', 'state accept');
+      } else {
+        circle.setAttribute('class', 'state');
+      }
+      
+      g.appendChild(circle);
+      
+      const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      label.setAttribute('x', x);
+      label.setAttribute('y', y + 4);
+      label.setAttribute('class', 'st-label');
+      label.textContent = s;
+      g.appendChild(label);
+      
+      svg.appendChild(g);
+    });
+    
+    // start arrow
+    const startArrow = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    startArrow.setAttribute('d', `M ${coords.q0.x - 40} ${coords.q0.y} L ${coords.q0.x - 24} ${coords.q0.y}`);
+    startArrow.setAttribute('class', 'edge');
+    svg.appendChild(startArrow);
+  }
+
+  // Initial draw
+  drawDiagram();
+
+  // simulation state
+  let active = new Set(['q0']);
+  let history = []; // {char, from:Set, to:Set}
+  let index = 0;
+  let playing = false;
+  let timer = null;
+
+  function resetAll(){
+    active = new Set(['q0']);
+    history = [];
+    index = 0;
+    playing = false;
+    clearTimer();
+    render();
+  }
+
+  function clearTimer(){
+    if(timer){ clearInterval(timer); timer = null; }
+  }
+
+  function updateStatus(){
+    idxEl.textContent = index;
+    const s = inp.value || '';
+    lenEl.textContent = s.length;
+    currEl.textContent = (index < s.length) ? JSON.stringify(s[index]) : '—';
+    // result only when finished
+    if(index >= s.length){
+      const isAcc = [...active].some(st => ACCEPT.has(st));
+      const isTrap = [...active].some(st => st === TRAP_STATE);
+      
+      if (isTrap) {
+        resultEl.textContent = 'TRAPPED';
+        resultEl.className = 'rejected';
+      } else if (isAcc) {
+        resultEl.textContent = 'ACCEPTED';
+        resultEl.className = 'accepted';
+      } else {
+        resultEl.textContent = 'REJECTED';
+        resultEl.className = 'rejected';
+      }
+    } else {
+      resultEl.textContent = '—';
+      resultEl.className = '';
+    }
+  }
+
+  function render(){
+    // update state circles
+    STATES.forEach(s => {
+      const g = document.getElementById('node-' + s);
+      if (g) {
+        const circle = g.querySelector('circle');
+        if (active.has(s)) {
+          circle.classList.add('active');
+        } else {
+          circle.classList.remove('active');
+        }
+      }
+    });
+    
+    // history
+    historyEl.innerHTML = '';
+    history.slice().reverse().forEach((h, idx) => {
+      const div = document.createElement('div');
+      div.style.padding = '6px 0';
+      const trapIndicator = [...h.to].includes(TRAP_STATE) ? ' 🚫' : '';
+      div.innerHTML = `<div style="font-family:monospace">${escapeHtml(h.char)}${trapIndicator}</div>
+        <div class="small">from: ${[...h.from].join(', ')}</div>
+        <div class="small">to: ${[...h.to].join(', ')}</div>`;
+      historyEl.appendChild(div);
+    });
+    updateStatus();
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // single step
+  function stepOnce(){
+    const s = inp.value || '';
+    if(index >= s.length){
+      // finished
+      updateStatus();
+      return;
+    }
+    
+    const raw = s[index];
+    const ch = raw.toUpperCase();
+    
+    // if space, consume and keep same active set
+    if(isSpace(raw)){
+      history.push({char: raw, from: new Set(active), to: new Set(active)});
+      index++;
+      render();
+      return;
+    }
+    
+    // compute next states
+    const next = new Set();
+    let hasValidTransition = false;
+    
+    for(const st of active){
+      // If already in trap state, stay there
+      if (st === TRAP_STATE) {
+        next.add(TRAP_STATE);
+        continue;
+      }
+      
+      const rules = TRANS[st] || [];
+      let foundValid = false;
+      
+      for(const r of rules){
+        if(r.t === 'L' && isLetter(ch)) {
+          next.add(r.to);
+          foundValid = true;
+          hasValidTransition = true;
+        }
+        if(r.t === 'D' && isDigit(ch)) {
+          next.add(r.to);
+          foundValid = true;
+          hasValidTransition = true;
+        }
+      }
+      
+      // If no valid transition found from this state, go to trap
+      if (!foundValid) {
+        next.add(TRAP_STATE);
+      }
+    }
+    
+    // If no valid transitions at all and not already in trap, go to trap
+    if (!hasValidTransition && !active.has(TRAP_STATE) && next.size === 0) {
+      next.add(TRAP_STATE);
+    }
+    
+    history.push({char: raw, from: new Set(active), to: new Set(next)});
+    active = next.size ? next : new Set([TRAP_STATE]); // if empty set, go to trap
+    index++;
+    render();
+  }
+
+  function stepBack(){
+    if(history.length === 0) return;
+    const last = history.pop();
+    active = new Set(last.from);
+    index = Math.max(0, index - 1);
+    render();
+  }
+
+  function play(){
+    if(playing) return;
+    playing = true;
+    const speed = Number(speedSel.value) || 600;
+    timer = setInterval(() => {
+      if(index >= (inp.value||'').length){
+        clearTimer();
+        playing = false;
+        render();
+        return;
+      }
+      stepOnce();
+    }, speed);
+  }
+
+  // wire UI
+  btnReset.addEventListener('click', resetAll);
+  btnStep.addEventListener('click', () => {
+    clearTimer(); playing=false;
+    stepOnce();
+  });
+  btnBack.addEventListener('click', () => {
+    clearTimer(); playing=false;
+    stepBack();
+  });
+  btnPlay.addEventListener('click', () => {
+    // if already finished, reset first
+    if(index >= (inp.value||'').length){
+      resetAll();
+    }
+    play();
+  });
+  inp.addEventListener('input', resetAll);
+
+  // Zoom controls
+  btnZoomIn.addEventListener('click', zoomIn);
+  btnZoomOut.addEventListener('click', zoomOut);
+  btnZoomFit.addEventListener('click', zoomFit);
+  btnResetView.addEventListener('click', resetView);
+
+  // Handle window resize
+  window.addEventListener('resize', () => {
+    drawDiagram();
+    render();
+  });
+
+  // Initial setup
+  resetAll();
+  updateZoom();
+})();
+</script>
+</body>
+</html>
